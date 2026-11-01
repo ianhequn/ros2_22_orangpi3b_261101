@@ -1,0 +1,50 @@
+ydlidar_ros2_driver_node:
+  ros__parameters:
+    # 串口设备路径；udev 规则建议改成固定名字如 /dev/ydlidar
+    port: /dev/ttyUSB0
+    # LaserScan/PointCloud 消息里的坐标系名，需与 TF 中的 frame 一致
+    frame_id: laser_frame
+    # 角度屏蔽区，单位：度，逗号分隔的成对区间（如 "0,30,60,90" 表示屏蔽 0~30 和 60~90），命中的点 range 置 0
+    ignore_array: ""
+    # 串口波特率，必须与雷达实际波特率一致（与 scl_test 里选的一致）
+    baudrate: 115200
+    # 雷达类型：0=TOF(TG/TX), 1=TRIANGLE(G4/G6...), 2=TOF_NET(T15), 3=GS, 4=SCL, 5=SDM, 6=SDM18
+    lidar_type: 4
+    # 连接方式：0=串口, 1=TCP, 2=UDP
+    device_type: 0
+    # 单通通信（雷达只发数据、不收命令）。true 时 SDK 会按实测一圈点数（均值取整到 10）自动修正 m_FixedSize
+    isSingleChannel: true
+    # 是否解析强度字段；SCL 按 triangle 协议解析，带强度时必须为 true
+    intensity: true
+    # 强度位宽：8 时才走 triangle 的 8bit 强度分支，其它值解析出的强度/距离标志会错位
+    intensity_bit: 8
+    # 【对 SCL 基本无用】采样率(K)。hasSampleRate() 名单里没有 SCL，SDK 不会下发采样率命令，
+    # 运行时由实测点数重算（SCL 默认按 4K 处理）；该值仅影响启动最初算出的 m_FixedSize
+    sample_rate: 4
+    # 连续异常包多少次判定为掉线（内部下限为 2），越小越容易触发重连
+    abnormal_check_count: 4
+    # 固定角度分辨率：true 时按 m_FixedSize 把一圈点重采样成固定点数（angle_increment 恒定）
+    fixed_resolution: true
+    # 角度整体旋转 180°
+    reversion: true
+    # 反向：角度改为 2π-angle（顺时针/逆时针切换）
+    inverted: true
+    # 串口异常后自动重连
+    auto_reconnect: true
+    # 通过串口 DTR 控制电机；false 时 startMotor/stopMotor 走 clearDTR()，
+    # 雷达电机由外部供电/自转时保持 false，改成 true 可能反而让电机停转
+    support_motor_dtr: false
+    # 输出角度上限，单位：度
+    angle_max: 180.0
+    # 输出角度下限，单位：度
+    angle_min: -180.0
+    # 有效距离上限，单位：米，超出部分丢弃
+    range_max: 64.0
+    # 有效距离下限，单位：米，低于该值丢弃（scl_test 用 0.05）
+    range_min: 0.05
+    # 目标扫描频率，单位：Hz。SCL 会尝试下发调速命令；单通时命令无回包则此值只作为固定值使用
+    frequency: 5.0
+    # 【无用参数】本驱动只 declare/get，后续代码从未使用，删除无影响
+    invalid_range_is_inf: false
+    # 打开 SDK 内部调试打印（发包/解析细节），排查问题时才设 true
+    debug: false
