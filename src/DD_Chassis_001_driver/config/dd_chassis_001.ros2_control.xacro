@@ -10,13 +10,13 @@
       <plugin>dd_chassis_001_hardware/DDChassis001System</plugin>
 
       <!-- ===== 串口 ===== -->
-      <param name="serial_device">/dev/ttyS1</param>
-      <param name="baud_rate">115200</param>
+      <param name="serial_device">/dev/ttyUSB0</param>
+      <param name="baud_rate">1000000</param>
 
       <!-- 帧尾魔数(uint32)：固件 64 字节上报帧的最后 4 字节。
            协议没有帧头，全靠这个值在字节流里对齐帧。
            支持十进制或 0x 前缀十六进制写法。 -->
-      <param name="frame_end">0x55AA55AA</param>
+      <param name="frame_end">0x0000807f</param>
 
       <!-- 超过该毫秒数收不到有效帧即判定通信中断 -->
       <param name="frame_timeout_ms">500</param>
@@ -50,7 +50,7 @@
       <param name="imu_topic">imu</param>
       <param name="imu_frame_id">imu_link</param>
       <!-- 用 imu1/imu2/imu3 中的哪一路作为 yaw：1/2/3 -->
-      <param name="imu_yaw_field">1</param>
+      <param name="imu_yaw_field">3</param>
       <!-- 固件欧拉角单位：true=度，false=弧度 -->
       <param name="imu_angle_is_deg">true</param>
       <!-- yaw 方向修正：-1 表示取反（与 REP-103 逆时针为正相反时用） -->
