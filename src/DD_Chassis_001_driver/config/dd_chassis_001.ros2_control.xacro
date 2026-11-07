@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!--
+  DD_Chassis_001 真机硬件接口配置片段。
+  用法：在机器人 URDF/xacro 中包含本文件（替换仿真用的 ign_ros2_control 插件块），
+  然后由 controller_manager 加载 controllers.yaml（diff_drive_controller 等）。
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <ros2_control name="dd_chassis_001" type="system">
+    <hardware>
+      <plugin>dd_chassis_001_hardware/DDChassis001System</plugin>
+
+      <!-- ===== 串口 ===== -->
+      <param name="serial_device">/dev/ttyS1</param>
+      <param name="baud_rate">115200</param>
+
+      <!-- 帧尾魔数(uint32)：固件 64 字节上报帧的最后 4 字节。
+           协议没有帧头，全靠这个值在字节流里对齐帧。
+           支持十进制或 0x 前缀十六进制写法。 -->
+      <param name="frame_end">0x55AA55AA</param>
+
+      <!-- 超过该毫秒数收不到有效帧即判定通信中断 -->
+      <param name="frame_timeout_ms">500</param>
+      <!-- true: 通信中断时向固件下发 0 速度（防止车按最后指令乱跑） -->
+      <param name="timeout_stops_motors">true</param>
+
+      <!-- 关节角速度限幅(rad/s)，<=0 表示不限幅。实际车速 = 此值 * 轮半径 -->
+      <param name="max_wheel_velocity">25.0</param>
+      <!-- 指令变化小于该值(rad/s)就不下发，避免每周期刷串口 -->
+      <param name="command_epsilon">0.01</param>
+
+      <!-- ===== 两轮映射与标定 ===== -->
+      <!-- URDF 中的左右轮关节名 -->
+      <param name="left_wheel_joint">wheel_l</param>
+      <param name="right_wheel_joint">wheel_r</param>
+      <!-- 固件里的电机序号：sz qeiM <motor_index> T <value> -->
+      <param name="left_motor_index">0</param>
+      <param name="right_motor_index">1</param>
+      <!-- 换算系数：关节角速度(rad/s) = 固件速度值 * speed_scale
+           即 speed_scale 是「固件速度单位」到「rad/s」的比例。
+           标定方法：让固件以固定目标值跑，实测轮子转一圈耗时，
+           得到实际 rad/s 后再除以固件上报的 speed 值即可。 -->
+      <param name="left_speed_scale">1.0</param>
+      <param name="right_speed_scale">1.0</param>
+      <!-- 关节正方向与固件正方向相反时置 true（表现：发前进指令轮子反转） -->
+      <param name="left_invert">false</param>
+      <param name="right_invert">false</param>
+
+      <!-- ===== IMU（帧内只有欧拉角，角速度由相邻帧差分得到） ===== -->
+      <param name="publish_imu">true</param>
+      <param name="imu_topic">imu</param>
+      <param name="imu_frame_id">imu_link</param>
+      <!-- 用 imu1/imu2/imu3 中的哪一路作为 yaw：1/2/3 -->
+      <param name="imu_yaw_field">1</param>
+      <!-- 固件欧拉角单位：true=度，false=弧度 -->
+      <param name="imu_angle_is_deg">true</param>
+      <!-- yaw 方向修正：-1 表示取反（与 REP-103 逆时针为正相反时用） -->
+      <param name="imu_yaw_sign">1.0</param>
+      <param name="imu_publish_rate">100.0</param>
+    </hardware>
+
+    <joint name="wheel_l">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <joint name="wheel_r">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+</robot>

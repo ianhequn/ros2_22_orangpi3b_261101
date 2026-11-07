@@ -3,11 +3,16 @@
 <package format="3">
   <name>DD_Chassis_001_driver</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>DD_Chassis_001 两轮差速底盘 + 板载 IMU 的 ros2_control 硬件接口</description>
   <maintainer email="Rui@sz.com">orangepi</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

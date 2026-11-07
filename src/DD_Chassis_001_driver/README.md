@@ -8,7 +8,7 @@
 - 本驱动包应该实现将MCU固件上传的信息解析到nav2里程计系统需要的话题，包含两轮速度和IMU偏航角
 - 本驱动包应该根据配置文件配置一下内容
     - 使用的串口设备和波特率
-    - 选择使用的IMU欧拉角数据序号(0~3)
+    - 选择使用的IMU欧拉角数据序号(0~2)
     - 两轮速度物理值与固件数据值的换算系数(标定)
     - 其它有必要配置的项
 
@@ -88,3 +88,29 @@ sz qeiM 0 T 10.0
 sz qeiM 1 T -20.5
 ```
 
+
+## 本机实现（ros2_control 硬件组件）
+
+真机接口做成 **1 个 System 组件**（轮速与 IMU 同帧同串口，拆成两个组件就要共享同一个串口 fd，且 Humble 没有 `imu_sensor_broadcaster`）：
+
+| 文件 | 职责 |
+| --- | --- |
+| `serial_port.{hpp,cpp}` | 纯 C++ 串口封装：raw 8N1 非阻塞开/读/写 |
+| `chassis_protocol.{hpp,cpp}` | 64 字节帧解析（靠帧尾魔数对齐）、`sz qeiM <i> T <v>` 命令组包 |
+| `dd_chassis_001_system.{hpp,cpp}` | ros2_control `SystemInterface`：2 轮 velocity 指令 + position/velocity 状态；内部线程发布 `/imu` |
+| `config/dd_chassis_001.ros2_control.xacro` | 全部参数（串口、帧尾、标定、IMU 选择）的带注释配置片段 |
+| `dd_chassis_001_hardware.xml` | pluginlib 导出，插件名 `dd_chassis_001_hardware/DDChassis001System` |
+
+装配方式：把 `config/dd_chassis_001.ros2_control.xacro` 的 `<ros2_control>` 块替换掉 URDF 里仿真用的 `ign_ros2_control` 块，`controllers.yaml` / `ekf.yaml` 不用改（`/diff_drive_controller/odom` 与 `/imu` 名字保持一致）。
+
+编译依赖：
+```bash
+sudo apt install ros-humble-ros2-control ros-humble-ros2-controllers
+```
+然后 `colcon build --packages-select DD_Chassis_001_driver`。
+
+实现约定（需要与固件确认/适配时改这里）：
+- 上报帧按**小端**解析（`chassis_protocol.cpp` 的 `read_le_u32/read_le_f32`）。
+- 固件只上报轮速，`position` 由速度积分得到；IMU 只上报欧拉角，`angular_velocity.z` 由相邻帧 yaw 差分得到（已处理 ±180° 跳变）。
+- 通信中断（`frame_timeout_ms` 内无有效帧）时上报零速度，并按 `timeout_stops_motors` 向固件下发 0。
+- 速度指令只在变化超过 `command_epsilon` 时下发，固件保持上一次目标值。

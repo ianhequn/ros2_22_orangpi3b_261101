@@ -1,0 +1,7 @@
+<library path="dd_chassis_001_hardware">
+  <class name="dd_chassis_001_hardware/DDChassis001System"
+         type="dd_chassis_001::DDChassis001System"
+         base_class_type="hardware_interface::SystemInterface">
+    <description>DD_Chassis_001 两轮差速底盘 + 板载 IMU 的 ros2_control 硬件组件</description>
+  </class>
+</library>
