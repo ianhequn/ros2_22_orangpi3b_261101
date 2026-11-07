@@ -23,7 +23,17 @@ bool to_termios_baud(int baud_rate, speed_t & out)
     case 115200: out = B115200; return true;
     case 230400: out = B230400; return true;
     case 460800: out = B460800; return true;
+    case 500000: out = B500000; return true;
+    case 576000: out = B576000; return true;
     case 921600: out = B921600; return true;
+    case 1000000: out = B1000000; return true;
+    case 1152000: out = B1152000; return true;
+    case 1500000: out = B1500000; return true;
+    case 2000000: out = B2000000; return true;
+    case 2500000: out = B2500000; return true;
+    case 3000000: out = B3000000; return true;
+    case 3500000: out = B3500000; return true;
+    case 4000000: out = B4000000; return true;
     default: return false;
   }
 }

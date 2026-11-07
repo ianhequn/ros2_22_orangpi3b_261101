@@ -16,7 +16,7 @@
       <!-- 帧尾魔数(uint32)：固件 64 字节上报帧的最后 4 字节。
            协议没有帧头，全靠这个值在字节流里对齐帧。
            支持十进制或 0x 前缀十六进制写法。 -->
-      <param name="frame_end">0x0000807f</param>
+      <param name="frame_end">0x7F800000</param>
 
       <!-- 超过该毫秒数收不到有效帧即判定通信中断 -->
       <param name="frame_timeout_ms">500</param>
