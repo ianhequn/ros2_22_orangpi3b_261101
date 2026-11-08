@@ -1,7 +1,7 @@
 # 验证用控制器配置：与真机导航侧保持一致，只少了 EKF
 controller_manager:
   ros__parameters:
-    update_rate: 100
+    update_rate: 60
 
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
