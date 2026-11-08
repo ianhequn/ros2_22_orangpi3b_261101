@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-#include "DD_Chassis_001_driver/visibility_control.hpp"
+#include "dd_chassis_001_driver/visibility_control.hpp"
 
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/hardware_info.hpp"

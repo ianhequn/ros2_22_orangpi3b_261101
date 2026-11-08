@@ -3,13 +3,13 @@
   pluginlib 描述文件：登记可被 controller_manager 加载的硬件组件。
 
     <library path>   必须与 CMakeLists.txt 中 add_library(...) 的目标名一致
-                     （这里生成 libDD_Chassis_001_driver.so）
+                     （这里生成 libdd_chassis_001_driver.so）
     <class name>     资源管理器里使用的插件名，URDF 的 <plugin> 标签填这个
     type             真实 C++ 类型，须与 PLUGINLIB_EXPORT_CLASS 的第一个参数一致
     base_class_type  基类：System / Actuator / Sensor 三种
 -->
-<library path="DD_Chassis_001_driver">
-  <class name="DD_Chassis_001_driver/DDChassis001System"
+<library path="dd_chassis_001_driver">
+  <class name="dd_chassis_001_driver/DDChassis001System"
          type="dd_chassis_001_driver::DDChassis001System"
          base_class_type="hardware_interface::SystemInterface">
     <description>DD_Chassis_001 两轮差速底盘（含板载 IMU）硬件组件</description>

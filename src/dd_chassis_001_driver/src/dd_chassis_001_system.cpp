@@ -10,7 +10,7 @@
  *  5. write        : 命令换算 -> 下发速度指令
  *  6. on_activate / on_deactivate / on_shutdown / on_error : 使能/停机/收尾
  */
-#include "DD_Chassis_001_driver/dd_chassis_001_system.hpp"
+#include "dd_chassis_001_driver/dd_chassis_001_system.hpp"
 
 #include <string>
 #include <vector>

@@ -32,13 +32,21 @@
 
 - [x] 确认 `dd_chassis_001_system.hpp/.cpp` 骨架能编译、`test_load_dd_chassis_001_system` 通过
 - [x] `uncrustify`：用 `ament_uncrustify --reformat` 修正格式（2 空格缩进等），并顺手修正被误改的 doxygen 注释块
-- [x] `xmllint`：**真实原因是包名 `DD_Chassis_001_driver` 含大写，不符合 ROS 规范 `[a-z](_?[a-z0-9]+)*`**，无法靠改代码解决 → 在 CMakeLists 里 `set(ament_cmake_xmllint_FOUND TRUE)` 禁用
+- [x] `xmllint`：真因是包名含**大写**，违反 ROS 包名规范 `[a-z](_?[a-z0-9]+)*`
+- [x] **包已迁移为小写 `dd_chassis_001_driver`** → 根因消除，`xmllint` 恢复启用并通过
 - [x] `copyright`（可选）：沿用原模板的 `set(ament_cmake_copyright_FOUND TRUE)`，不补头注释
+- [x] 旧包（大写）已删除，`build/ install/ log/` 已清空重建
 
-**完成标准**：`colcon build --symlink-install` + `colcon test` 全绿（14 tests, 0 failures）。
+**完成标准**：`colcon build --symlink-install` + `colcon test` 全绿（17 tests, 0 failures）。
 
-> 注意：改 `CMakeLists.txt` 里的 lint 开关后必须 `rm -rf build/<pkg> install/<pkg>` 再构建，
+> 注意 1：改 `CMakeLists.txt` 里的 lint 开关后必须 `rm -rf build/<pkg> install/<pkg>` 再构建，
 > 否则 `CMakeCache` 里缓存的 `ament_cmake_*_FOUND` 变量会继续生效。
+>
+> 注意 2：包名迁移需同步 7 处（本次已全部改完）：
+> `project()`/`add_library()`、xml 的 `<library path>` 与 `<class name>`、
+> `PLUGINLIB_EXPORT_CLASS` 的命名空间、`#include "<包名>/..."`、`include/<包名>/` 目录、
+> 头文件守卫宏、xacro 里的 `<plugin>`。
+> 迁移后务必 `rm -rf build install log`，否则 ament 索引会残留旧插件名。
 
 ---
 
