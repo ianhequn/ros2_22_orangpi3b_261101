@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<!--
+  仅用于验证的极简机器人描述：base_footprint + base_link + 两轮 + imu_link。
+  不含 meshes，只为让 ros2_control / robot_state_publisher 跑起来。
+  真机导航用的完整 description 在导航侧（WSL2 仓）维护。
+
+  硬件参数不在这里，统一在 config/dd_chassis_001.ros2_control.xacro。
+-->
+<robot name="dd_chassis_001_test" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:include filename="$(find dd_chassis_001_driver)/config/dd_chassis_001.ros2_control.xacro"/>
+
+  <xacro:property name="wheel_radius" value="0.0325"/>
+  <xacro:property name="wheel_separation" value="0.34"/>
+
+  <link name="base_footprint"/>
+
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${wheel_radius}"/>
+  </joint>
+
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="0.20 0.16 0.08"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <!-- 左右轮：绕 y 轴旋转，正方向按 REP-103 -->
+  <xacro:macro name="wheel" params="prefix y">
+    <link name="${prefix}_link">
+      <visual>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="0.02"/>
+        </geometry>
+      </visual>
+    </link>
+    <joint name="${prefix}" type="continuous">
+      <parent link="base_link"/>
+      <child link="${prefix}_link"/>
+      <origin xyz="0 ${y} 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:wheel prefix="wheel_l" y="${wheel_separation / 2}"/>
+  <xacro:wheel prefix="wheel_r" y="${-wheel_separation / 2}"/>
+
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0.02"/>
+  </joint>
+</robot>

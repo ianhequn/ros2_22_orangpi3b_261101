@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<!--
+  DD_Chassis_001 真机硬件接口配置片段。
+  用法：在机器人 URDF/xacro 里 include 本文件（替换仿真用的 ign_ros2_control 块），
+  再由 controller_manager 加载 controllers.yaml（diff_drive_controller 等）。
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <ros2_control name="dd_chassis_001" type="system">
+    <hardware>
+      <plugin>dd_chassis_001_driver/DDChassis001System</plugin>
+
+      <!-- ===== 串口 ===== -->
+      <param name="serial_device">/dev/ttyUSB1</param>
+      <param name="baud_rate">1000000</param>
+
+      <!-- 帧尾魔数(uint32)：64 字节上报帧的最后 4 字节。协议无帧头，全靠它对齐。
+           支持十进制或 0x 前缀十六进制。必填，不能为 0。 -->
+      <param name="frame_end">0x7F800000</param>
+
+      <!-- 超过该毫秒数收不到有效帧即判定通信中断（建议 >= 5 个上报周期） -->
+      <param name="frame_timeout_ms">500</param>
+      <!-- true: 通信中断时向固件下发 0 速度（安全默认，建议保持） -->
+      <param name="timeout_stops_motors">true</param>
+
+      <!-- ===== 控制 ===== -->
+      <!-- 关节角速度限幅(rad/s)，<=0 表示不限幅。实际线速度 ≈ 该值 * 轮半径 -->
+      <param name="max_wheel_velocity">25.0</param>
+      <!-- 指令变化小于该值就不下发，避免每周期刷串口 -->
+      <param name="command_epsilon">0.01</param>
+      <!-- >0: 即使指令不变也按该毫秒周期重发（固件需要心跳/超时保护时用）；0=仅变化时发 -->
+      <param name="command_repeat_period_ms">0</param>
+
+      <!-- ===== 两轮映射与标定 ===== -->
+      <!-- URDF 中的左右轮关节名（必须真实存在） -->
+      <param name="left_wheel_joint">wheel_l</param>
+      <param name="right_wheel_joint">wheel_r</param>
+      <!-- 固件里的电机序号：SZ qeiM <motor_index> T <value>，两者必须不同 -->
+      <param name="left_motor_index">0</param>
+      <param name="right_motor_index">1</param>
+      <!-- 换算系数（必须 > 0）：关节角速度(rad/s) = 固件 speed 值 * speed_scale
+           下发时取倒数：固件值 = 关节角速度 / speed_scale
+           标定：让固件以固定目标值稳定运行，量出实际 rad/s，再除以固件上报的 speed 值。 -->
+      <param name="left_speed_scale">1.0</param>
+      <param name="right_speed_scale">1.0</param>
+      <!-- 关节正方向与固件正方向相反时置 true（只表达方向，不改比例） -->
+      <param name="left_invert">false</param>
+      <param name="right_invert">false</param>
+
+      <!-- ===== IMU（帧内只有欧拉角，角速度由相邻帧差分得到） ===== -->
+      <param name="publish_imu">true</param>
+      <param name="imu_topic">imu</param>
+      <param name="imu_frame_id">imu_link</param>
+      <!-- 用 imu1/imu2/imu3 中的哪一路作为 yaw：1/2/3 -->
+      <param name="imu_yaw_field">3</param>
+      <!-- 固件欧拉角单位：true=度，false=弧度 -->
+      <param name="imu_angle_is_deg">true</param>
+      <!-- yaw 方向修正：只能是 1 或 -1（与 REP-103 逆时针为正相反时用 -1） -->
+      <param name="imu_yaw_sign">1.0</param>
+      <!-- IMU 发布频率上限 [Hz]，作抽帧用；默认与上报同频 -->
+      <param name="imu_publish_rate">120.0</param>
+      <!-- steady_clock -> ROS time 偏移的校正周期 [s]，0 表示不校正 -->
+      <param name="imu_stamp_offset_calib_s">10.0</param>
+
+      <!-- ===== 调试 ===== -->
+      <!-- true 时每秒打印帧原始值/换算值；上线前改成 false -->
+      <param name="debug_log">false</param>
+    </hardware>
+
+    <joint name="wheel_l">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+    <joint name="wheel_r">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+</robot>

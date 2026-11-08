@@ -19,6 +19,8 @@ find_package(rclcpp_lifecycle REQUIRED)
 add_library(dd_chassis_001_driver SHARED
   src/dd_chassis_001_system.cpp
   src/config.cpp
+  src/serial_port.cpp
+  src/chassis_protocol.cpp
 )
 target_include_directories(dd_chassis_001_driver PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -41,7 +43,12 @@ install(TARGETS dd_chassis_001_driver
 )
 install(DIRECTORY include/ DESTINATION include)
 
-install(DIRECTORY note DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY config launch note DESTINATION share/${PROJECT_NAME})
+install(PROGRAMS
+  scripts/serial_monitor.py
+  scripts/chassis_monitor.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 # ===== 测试 =====
 if(BUILD_TESTING)
@@ -53,6 +60,12 @@ if(BUILD_TESTING)
 
   ament_add_gmock(test_config test/test_config.cpp)
   target_link_libraries(test_config dd_chassis_001_driver)
+
+  ament_add_gmock(test_chassis_protocol test/test_chassis_protocol.cpp)
+  target_link_libraries(test_chassis_protocol dd_chassis_001_driver)
+
+  ament_add_gmock(test_data_exchange test/test_data_exchange.cpp)
+  target_link_libraries(test_data_exchange dd_chassis_001_driver)
 
   ament_add_gmock(test_load_dd_chassis_001_system
     test/test_load_dd_chassis_001_system.cpp
