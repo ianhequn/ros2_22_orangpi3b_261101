@@ -21,7 +21,8 @@ TEST(TestLoadDDChassis001System, load_plugin)
     "hardware_interface", "hardware_interface::SystemInterface");
 
   // 参数3：插件名，必须与 DD_Chassis_001_driver.xml 里的 <class name="..."> 一致
-  EXPECT_NO_THROW({
+  EXPECT_NO_THROW(
+  {
     auto system = loader.createSharedInstance(
       "DD_Chassis_001_driver/DDChassis001System");
     EXPECT_NE(system, nullptr);
