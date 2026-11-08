@@ -18,6 +18,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 # 库名必须与 dd_chassis_001_driver.xml 里的 <library path="..."> 一致
 add_library(dd_chassis_001_driver SHARED
   src/dd_chassis_001_system.cpp
+  src/config.cpp
 )
 target_include_directories(dd_chassis_001_driver PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -49,6 +50,9 @@ if(BUILD_TESTING)
   set(ament_cmake_copyright_FOUND TRUE)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
+
+  ament_add_gmock(test_config test/test_config.cpp)
+  target_link_libraries(test_config dd_chassis_001_driver)
 
   ament_add_gmock(test_load_dd_chassis_001_system
     test/test_load_dd_chassis_001_system.cpp

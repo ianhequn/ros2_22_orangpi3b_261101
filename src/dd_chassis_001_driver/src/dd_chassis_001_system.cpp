@@ -12,6 +12,8 @@
  */
 #include "dd_chassis_001_driver/dd_chassis_001_system.hpp"
 
+#include "rclcpp/rclcpp.hpp"
+
 #include <string>
 #include <vector>
 
@@ -20,22 +22,6 @@
 
 namespace dd_chassis_001_driver
 {
-namespace
-{
-/**
- * @brief 从硬件参数表读取字符串参数，不存在时返回 fallback。
- * @param info 硬件描述
- * @param key  参数名（URDF <param name="...">）
- * @param fallback 缺省值
- */
-std::string get_param(
-  const hardware_interface::HardwareInfo & info, const std::string & key,
-  const std::string & fallback)
-{
-  const auto it = info.hardware_parameters.find(key);
-  return it == info.hardware_parameters.end() ? fallback : it->second;
-}
-}     // namespace
 
 hardware_interface::CallbackReturn DDChassis001System::on_init(
   const hardware_interface::HardwareInfo & info)
@@ -47,13 +33,46 @@ hardware_interface::CallbackReturn DDChassis001System::on_init(
     return hardware_interface::CallbackReturn::ERROR;
   }
 
-  serial_device_ = get_param(info, "serial_device", serial_device_);
-  left_joint_ = get_param(info, "left_wheel_joint", left_joint_);
-  right_joint_ = get_param(info, "right_wheel_joint", right_joint_);
-  // TODO: 解析 baud_rate / frame_end / speed_scale / invert / 限幅 / 超时
-  //       必填项缺失或非法：RCLCPP_ERROR 后 return ERROR
+  // ---------- 1) 参数解析与校验（纯逻辑，不碰硬件）----------
+  std::string error_message;
+  const ParseResult result = parse_config(info.hardware_parameters, cfg_, error_message);
+  if (result != ParseResult::kOk) {
+    const char * kind = (result == ParseResult::kMissing) ? "参数缺失" : "参数非法";
+    RCLCPP_ERROR(
+      rclcpp::get_logger("dd_chassis_001_driver"), "%s: %s",
+      kind, error_message.c_str());
+    return hardware_interface::CallbackReturn::ERROR;
+  }
 
-  // TODO: 校验 info.joints 中确实存在 left_joint_ / right_joint_
+  // ---------- 2) 交叉校验：配置的 joint 名必须真的存在于 URDF ----------
+  bool left_found = false;
+  bool right_found = false;
+  for (const auto & joint : info.joints) {
+    left_found = left_found || (joint.name == cfg_.left.joint_name);
+    right_found = right_found || (joint.name == cfg_.right.joint_name);
+  }
+  if (!left_found) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("dd_chassis_001_driver"),
+      "URDF 中找不到左轮关节 \"%s\"", cfg_.left.joint_name.c_str());
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+  if (!right_found) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("dd_chassis_001_driver"),
+      "URDF 中找不到右轮关节 \"%s\"", cfg_.right.joint_name.c_str());
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
+  RCLCPP_INFO(
+    rclcpp::get_logger("dd_chassis_001_driver"),
+    "配置: %s @ %d  frame_end=0x%08X  timeout=%dms  left=%s(motor %d, scale %.6f, invert %d)"
+    "  right=%s(motor %d, scale %.6f, invert %d)",
+    cfg_.serial_device.c_str(), cfg_.baud_rate, cfg_.frame_end, cfg_.frame_timeout_ms,
+    cfg_.left.joint_name.c_str(), cfg_.left.motor_index, cfg_.left.speed_scale,
+    static_cast<int>(cfg_.left.invert),
+    cfg_.right.joint_name.c_str(), cfg_.right.motor_index, cfg_.right.speed_scale,
+    static_cast<int>(cfg_.right.invert));
 
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -105,13 +124,13 @@ std::vector<hardware_interface::StateInterface> DDChassis001System::export_state
   std::vector<hardware_interface::StateInterface> state_interfaces;
   // 接口名格式固定为 "<joint_name>/<interface_name>"
   state_interfaces.emplace_back(
-    left_joint_, hardware_interface::HW_IF_POSITION, &wheel_position_[0]);
+    cfg_.left.joint_name, hardware_interface::HW_IF_POSITION, &wheel_position_[0]);
   state_interfaces.emplace_back(
-    left_joint_, hardware_interface::HW_IF_VELOCITY, &wheel_velocity_[0]);
+    cfg_.left.joint_name, hardware_interface::HW_IF_VELOCITY, &wheel_velocity_[0]);
   state_interfaces.emplace_back(
-    right_joint_, hardware_interface::HW_IF_POSITION, &wheel_position_[1]);
+    cfg_.right.joint_name, hardware_interface::HW_IF_POSITION, &wheel_position_[1]);
   state_interfaces.emplace_back(
-    right_joint_, hardware_interface::HW_IF_VELOCITY, &wheel_velocity_[1]);
+    cfg_.right.joint_name, hardware_interface::HW_IF_VELOCITY, &wheel_velocity_[1]);
   return state_interfaces;
 }
 
@@ -119,9 +138,9 @@ std::vector<hardware_interface::CommandInterface> DDChassis001System::export_com
 {
   std::vector<hardware_interface::CommandInterface> command_interfaces;
   command_interfaces.emplace_back(
-    left_joint_, hardware_interface::HW_IF_VELOCITY, &wheel_velocity_cmd_[0]);
+    cfg_.left.joint_name, hardware_interface::HW_IF_VELOCITY, &wheel_velocity_cmd_[0]);
   command_interfaces.emplace_back(
-    right_joint_, hardware_interface::HW_IF_VELOCITY, &wheel_velocity_cmd_[1]);
+    cfg_.right.joint_name, hardware_interface::HW_IF_VELOCITY, &wheel_velocity_cmd_[1]);
   return command_interfaces;
 }
 

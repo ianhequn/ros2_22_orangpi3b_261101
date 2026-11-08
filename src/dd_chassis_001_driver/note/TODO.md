@@ -14,7 +14,7 @@
 | # | 步骤 | 状态 | 产出 | 验证信号 |
 | --- | --- | --- | --- | --- |
 | 0 | 骨架与 lint 清理 | ✅ | 能编能测、lint 静音 | `colcon build && colcon test` 全绿 |
-| 1 | 参数层 | ⬜ | `on_init` 解析全部 param + 校验 | 故意填错参数 → 明确报错且拒绝加载 |
+| 1 | 参数层 | ✅ | `on_init` 解析全部 param + 校验 | 故意填错参数 → 明确报错且拒绝加载 |
 | 2 | 串口类 | ⬜ | `serial_port.{hpp,cpp}` | gtest/小程序能读到 120Hz 原始字节 |
 | 3 | 协议类 | ⬜ | `chassis_protocol.{hpp,cpp}` | 4 个 gtest 用例全过 |
 | 4 | IO 线程 | ⬜ | eventfd + poll + 双缓冲快照 | `debug_log` 帧率≈120Hz，手动轮子 speed 变化 |
@@ -52,13 +52,18 @@
 
 ## 1. 参数层（`on_init`）
 
-- [ ] 按 `设计说明.md` §6 的清单逐项解析 `info.hardware_parameters`
-- [ ] 类型校验：`baud_rate`/`frame_timeout_ms` 整数、`speed_scale` 浮点且 ≠0、`imu_yaw_field` ∈ {1,2,3}
-- [ ] 必填项缺失或非法 → `RCLCPP_ERROR` + 返回 `ERROR`（不要静默取默认值）
-- [ ] 校验 `info.joints` 中确实存在 `left/right_wheel_joint`
-- [ ] 参数集中成一个 `struct Config`，供后续模块只读访问
+- [x] 参数集中为 `struct Config`（`include/.../config.hpp`），解析逻辑独立成 `parse_config()`（`src/config.cpp`），不依赖 ROS，可单测
+- [x] 按 `设计说明.md` §6 清单逐项解析 `info.hardware_parameters`
+- [x] 类型校验：整串消费（拒绝 `1.0abc`）、`speed_scale>0`、`imu_yaw_field∈{1,2,3}`、`imu_yaw_sign∈{1,-1}`、`frame_end≠0`、各超时/限幅非负
+- [x] 区分两类失败：`kMissing`（必填缺失）与 `kInvalid`（值非法），日志中带上参数名
+- [x] 交叉校验：左右轮 joint 名不同、`motor_index` 不同
+- [x] 校验 `info.joints` 中确实存在 `left/right_wheel_joint`；成功后打印一行汇总配置
+- [x] 单测 `test/test_config.cpp`（8 例）：完整解析、缺失、非法、尾随垃圾、零系数、越界、重名/重电机号、默认值
 
-**验证**：URDF 里故意删掉 `frame_end` / 把 `baud_rate` 写成 `abc`，启动后应明确报错、控制器不启动。
+**完成标准**：`colcon test` 全绿（32 tests, 0 failures）；URDF 填错参数时启动即报错并拒绝加载。
+
+> 测试发现并修复的真实缺陷：`left/right_motor_index` 默认值都是 0，
+> 导致"不显式配置就必然被交叉校验拦下"。现 `Config()` 构造函数中把 `right.motor_index` 默认设为 1。
 
 ---
 

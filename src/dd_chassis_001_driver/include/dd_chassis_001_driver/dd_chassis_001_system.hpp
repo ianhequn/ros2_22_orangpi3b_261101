@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "dd_chassis_001_driver/config.hpp"
 #include "dd_chassis_001_driver/visibility_control.hpp"
 
 #include "hardware_interface/handle.hpp"
@@ -143,12 +144,8 @@ private:
   // 关节索引：0=左轮，1=右轮（与成员数组下标一致）。
   static constexpr size_t kWheelCount = 2;
 
-  // ---- 配置项：在 on_init 中从硬件参数解析，默认值仅作兜底 ----
-  std::string serial_device_{"/dev/ttyUSB1"};       ///< 串口设备文件
-  int baud_rate_{115200};                           ///< 波特率
-  std::string left_joint_{"wheel_l"};               ///< 左轮关节名
-  std::string right_joint_{"wheel_r"};              ///< 右轮关节名
-  // TODO: 帧尾魔数、速度换算系数、方向 invert、限幅、通信超时等参数
+  /// 全部配置项：on_init 中解析并校验，之后只读
+  Config cfg_;
 
   // ---- 接口数据：export_* 导出其地址，必须固定大小 ----
   double wheel_position_[kWheelCount] = {0.0, 0.0};           ///< 累计转角 [rad]
