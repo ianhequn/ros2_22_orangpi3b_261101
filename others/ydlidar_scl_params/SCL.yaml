@@ -1,9 +1,9 @@
 ydlidar_ros2_driver_node:
   ros__parameters:
     # 串口设备路径；udev 规则建议改成固定名字如 /dev/ydlidar
-    port: /dev/ttyUSB0
+    port: /dev/ttyUSB2
     # LaserScan/PointCloud 消息里的坐标系名，需与 TF 中的 frame 一致
-    frame_id: laser_frame
+    frame_id: lidar_scan_link
     # 角度屏蔽区，单位：度，逗号分隔的成对区间（如 "0,30,60,90" 表示屏蔽 0~30 和 60~90），命中的点 range 置 0
     ignore_array: ""
     # 串口波特率，必须与雷达实际波特率一致（与 scl_test 里选的一致）
