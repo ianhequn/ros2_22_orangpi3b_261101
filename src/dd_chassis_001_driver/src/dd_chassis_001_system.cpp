@@ -391,6 +391,13 @@ void DDChassis001System::apply_frame(const ChassisFrame & frame, SteadyClock::ti
   double dt = 0.0;
   if (snapshot.valid) {
     dt = std::chrono::duration<double>(now - snapshot.stamp).count();
+    // 串口断续时会出现超大间隔（断连 3s 后恢复）。
+    // 这种间隔不能用来积分，否则 wheel_position 会一下子跳 v*3s 的距离。
+    constexpr double kMaxFrameGap = 0.5;  // [s]
+    if (dt > kMaxFrameGap) {
+      dt = 0.0;
+      snapshot.imu_yaw_rate = 0.0;
+    }
   }
 
   for (size_t i = 0; i < kWheelCount; ++i) {
@@ -405,8 +412,21 @@ void DDChassis001System::apply_frame(const ChassisFrame & frame, SteadyClock::ti
   const double angle_scale = cfg_.imu_angle_is_deg ? (kPi / 180.0) : 1.0;
   const size_t yaw_field = kFieldImu1 + static_cast<size_t>(cfg_.imu_yaw_field - 1);
   double yaw = wrap_angle(frame[yaw_field] * angle_scale * cfg_.imu_yaw_sign);
-  if (snapshot.valid && dt > 1e-4) {
-    snapshot.imu_yaw_rate = wrap_angle(yaw - snapshot.imu_yaw_rad) / dt;
+
+  // 差分算角速度有两个坑：
+  //   1) dt 过小：串口缓冲区积压后会一次性吐出多帧，相邻帧时间戳几乎相同，
+  //      Δyaw/dt 会算出几百上千 rad/s。EKF 拿它积分后 yaw 剧烈乱转
+  //      （实测 1 秒跳 215°）。
+  //   2) 真的大角速度也不应在物理范围外。
+  // 所以既限 dt 下限，也对结果做钳位。
+  constexpr double kMinDt = 0.002;       // [s] 对应 500Hz，高于上报率 120Hz 的两倍
+  constexpr double kMaxYawRate = 10.0;   // [rad/s] 物理合理上限
+  if (snapshot.valid && dt > kMinDt) {
+    const double rate = wrap_angle(yaw - snapshot.imu_yaw_rad) / dt;
+    snapshot.imu_yaw_rate = std::clamp(rate, -kMaxYawRate, kMaxYawRate);
+  } else {
+    // dt 缺失或过小：不给角速度，宁可这一帧不给，也不要给错的
+    snapshot.imu_yaw_rate = 0.0;
   }
   snapshot.imu_yaw_rad = yaw;
   snapshot.stamp = now;
