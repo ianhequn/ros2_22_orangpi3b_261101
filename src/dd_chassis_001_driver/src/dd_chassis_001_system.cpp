@@ -377,6 +377,29 @@ void DDChassis001System::send_stop()
   has_sent_ = true;
 }
 
+bool DDChassis001System::reopen_serial()
+{
+  port_.close();
+
+  std::string error;
+  if (!port_.open(cfg_.serial_device, cfg_.baud_rate, error)) {
+    RCLCPP_ERROR_THROTTLE(
+      logger(), throttle_clock(), 2000, "重新打开串口失败: %s", error.c_str());
+    return false;
+  }
+
+  // 旧 fd 里可能还有半帧数据，清空解析缓冲避免拼出错误帧
+  protocol_.reset();
+
+  // 重新起算：第一帧不参与积分，避免断连期间的时间差被算成位移
+  first_frame_ = true;
+  last_frame_time_ = SteadyClock::now();
+  has_sent_ = false;
+  logged_alive_ = false;   // 下一帧到达时会打印"底盘通信恢复"
+
+  return true;
+}
+
 void DDChassis001System::apply_frame(const ChassisFrame & frame, SteadyClock::time_point now)
 {
   const WheelConfig * wheels[kWheelCount] = {&cfg_.left, &cfg_.right};
@@ -468,19 +491,38 @@ void DDChassis001System::io_loop()
     }
 
     // ---------- 1) 读串口：一次读干净，可能含多帧 ----------
-    if (ready > 0 && (fds[0].revents & POLLIN)) {
-      for (;; ) {
-        const ssize_t n = port_.read(buffer, sizeof(buffer));
-        if (n <= 0) {
-          break;
+    if (ready > 0) {
+      // 串口断开/出错：poll 会返回 POLLHUP/POLLERR/POLLNVAL。
+      // 原来只处理 POLLIN，导致 USB 拔插后旧 fd 失效但仍在空转，
+      // 不重开就永远收不到数据，也永远不会打印“通信恢复”。
+      if (fds[0].revents & (POLLHUP | POLLERR | POLLNVAL)) {
+        RCLCPP_ERROR_THROTTLE(
+          logger(), throttle_clock(), 2000,
+          "串口异常 (revents=0x%x)，尝试重新打开 %s",
+          fds[0].revents, cfg_.serial_device.c_str());
+        if (reopen_serial()) {
+          RCLCPP_INFO(logger(), "串口已重新打开: %s", cfg_.serial_device.c_str());
+        } else {
+          // 设备可能还没插回来，等一会儿再试，避免刷爆日志
+          std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
-        if (protocol_.push(buffer, static_cast<size_t>(n), frame)) {
-          apply_frame(frame, SteadyClock::now());
-          last_frame_time_ = SteadyClock::now();
-          first_frame_ = false;
-          if (!logged_alive_) {
-            RCLCPP_INFO(logger(), "底盘通信恢复");
-            logged_alive_ = true;
+        continue;
+      }
+
+      if (fds[0].revents & POLLIN) {
+        for (;; ) {
+          const ssize_t n = port_.read(buffer, sizeof(buffer));
+          if (n <= 0) {
+            break;
+          }
+          if (protocol_.push(buffer, static_cast<size_t>(n), frame)) {
+            apply_frame(frame, SteadyClock::now());
+            last_frame_time_ = SteadyClock::now();
+            first_frame_ = false;
+            if (!logged_alive_) {
+              RCLCPP_INFO(logger(), "底盘通信恢复");
+              logged_alive_ = true;
+            }
           }
         }
       }

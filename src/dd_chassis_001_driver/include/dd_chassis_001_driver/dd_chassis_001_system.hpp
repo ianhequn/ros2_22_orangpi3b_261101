@@ -120,6 +120,16 @@ private:
   void imu_loop();
 
   /**
+   * @brief 串口异常后重新打开设备（IO 线程内调用）。
+   *
+   * USB 串口拔插会让 poll 返回 POLLHUP/POLLERR，原来的 fd 失效，
+   * 不重开就永远收不到数据。这里关闭旧 fd 并按原配置重新 open，
+   * 同时重置协议解析器和帧状态，避免半帧残留在缓冲区里。
+   * @return 是否成功
+   */
+  bool reopen_serial();
+
+  /**
  * @brief 把一帧原始数据换算成状态并写入快照（IO 线程内调用）。
  * @param frame 解析出的原始帧
  * @param now 帧到达时刻
