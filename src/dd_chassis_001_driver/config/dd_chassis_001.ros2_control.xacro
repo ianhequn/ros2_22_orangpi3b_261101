@@ -10,7 +10,7 @@
       <plugin>dd_chassis_001_driver/DDChassis001System</plugin>
 
       <!-- ===== 串口 ===== -->
-      <param name="serial_device">/dev/ttyUSB1</param>
+      <param name="serial_device">/dev/tty_chassis</param>
       <param name="baud_rate">1000000</param>
 
       <!-- 帧尾魔数(uint32)：64 字节上报帧的最后 4 字节。协议无帧头，全靠它对齐。
@@ -40,8 +40,8 @@
       <!-- 换算系数（必须 > 0）：关节角速度(rad/s) = 固件 speed 值 * speed_scale
            下发时取倒数：固件值 = 关节角速度 / speed_scale
            标定：让固件以固定目标值稳定运行，量出实际 rad/s，再除以固件上报的 speed 值。 -->
-      <param name="left_speed_scale">33.26</param>
-      <param name="right_speed_scale">33.26</param>
+      <param name="left_speed_scale">0.030063</param>
+      <param name="right_speed_scale">0.030063</param>
       <!-- 关节正方向与固件正方向相反时置 true（只表达方向，不改比例） -->
       <param name="left_invert">false</param>
       <param name="right_invert">false</param>
@@ -63,7 +63,7 @@
 
       <!-- ===== 调试 ===== -->
       <!-- true 时每秒打印帧原始值/换算值；上线前改成 false -->
-      <param name="debug_log">true</param>
+      <param name="debug_log">false</param>
     </hardware>
 
     <joint name="wheel_l">
