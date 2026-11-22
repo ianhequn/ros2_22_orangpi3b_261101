@@ -354,6 +354,11 @@ void DDChassis001System::send_velocity(const std::array<double, 2> & velocity)
     if (wheel.invert) {
       firmware_value = -firmware_value;
     }
+    // 串口断开时不写，也不报错——重连由 io_loop 负责，
+    // 这里再刷"发送失败"只会掩盖真正的原因。
+    if (!port_.is_open()) {
+      return;
+    }
     if (!port_.write(ChassisProtocol::speed_command(wheel.motor_index, firmware_value))) {
       RCLCPP_ERROR_THROTTLE(logger(), throttle_clock(), 1000, "速度指令发送失败");
     }
@@ -479,6 +484,18 @@ void DDChassis001System::io_loop()
   constexpr int kPollTimeoutMs = 100;
 
   while (io_running_) {
+    // 串口没打开（刚断开或重开失败）：不 poll，直接走重连逻辑。
+    // 否则 poll 对 fd=-1 会直接忽略，永远等不到 POLLERR，
+    // 重连只会尝试一次。
+    if (!port_.is_open()) {
+      if (reopen_serial()) {
+        RCLCPP_INFO(logger(), "串口已重新打开: %s", cfg_.serial_device.c_str());
+      } else {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        continue;
+      }
+    }
+
     struct pollfd fds[2];
     fds[0].fd = port_.fd();
     fds[0].events = POLLIN;
@@ -503,7 +520,8 @@ void DDChassis001System::io_loop()
         if (reopen_serial()) {
           RCLCPP_INFO(logger(), "串口已重新打开: %s", cfg_.serial_device.c_str());
         } else {
-          // 设备可能还没插回来，等一会儿再试，避免刷爆日志
+          // 设备可能还没插回来，等一会儿再试，避免刷爆日志。
+          // 重开失败后 fd 已失效，下轮循环会在开头重试。
           std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
         continue;
