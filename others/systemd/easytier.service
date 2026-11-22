@@ -1,0 +1,11 @@
+[Unit]
+Description=EasyTier Service
+After=network.target syslog.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/orangepi/MyWork/easytier/easytier-linux-aarch64/easytier-core -i 10.144.144.42 -p udp://192.168.223.1:11010
+
+[Install]
+WantedBy=multi-user.target
