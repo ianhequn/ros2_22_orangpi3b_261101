@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<!-- ============================================================================
+     dd_chassis_01 顶层装配文件（仿真 / 真机共用）
+
+     用法：
+       xacro dd_chassis_01.urdf.xacro hwi_mode:=sim  prefix:=
+       xacro dd_chassis_01.urdf.xacro hwi_mode:=real prefix:=
+
+     参数：
+       hwi_mode  sim | real   硬件接口形态。决定加载哪些 Gazebo / ros2_control
+                              内容。默认 real（真机是主要使用场景）。
+       prefix    命名空间前缀，作用于所有 link / joint 名。默认空。
+
+     分支收敛原则：
+       分支只在【本文件】出现一次，子文件都是纯内容、不做判断。
+       这样"哪里会因 sim/real 而不同"全部集中在下面这一段，一眼可见。
+
+         hwi_mode=sim   → sensors + gazebo + ros2_control(sim)
+         hwi_mode=real  → sensors +            ros2_control(real)
+
+       几何（test2_t03_...）两边完全一样，无条件 include。
+
+       sensors 两边都要：imu_link 是真机 EKF 的 frame_id，
+       lidar_scan_link 是雷达基准面，真机同样需要。
+
+     注意：$(find ...) 在 launch 用 Command(['xacro', ...]) 展开时有效；
+     若要经 ros_gz_sim create -file 直接喂文件，必须先用 xacro 展开成
+     纯 urdf，否则 $(find) 不会被解析。
+     ============================================================================ -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="dd_chassis_01">
+
+    <!-- ==================== 参数 ==================== -->
+    <xacro:arg name="prefix"   default="" />
+    <xacro:arg name="hwi_mode" default="real" />
+    <!-- 是否生成 <gazebo> 段（摩擦/传感器/ign 插件）。
+         不暴露成 launch 参数：由各 launch 内部按用途硬定。
+           gazebo.launch.py -> true   （sim 和 real 都要，Gazebo 提供物理和传感器）
+           slam_nav2        -> false  （真机不吃 Gazebo 段）
+           display          -> false  （只看模型） -->
+    <xacro:arg name="use_gazebo" default="true" />
+    <!-- 仿真时由 launch 传入 controllers.yaml 的绝对路径 -->
+    <xacro:arg name="controllers_yaml" default="" />
+    <!-- 串口设备。真机是 MCU 对应的 /dev/ttyUSB*；
+         本机跑 hwi_mode=real 时指向虚拟串口 socat 的一端（/dev/ttyV0）。
+         默认值保持真机习惯，仿真由 gazebo.launch.py 覆盖。 -->
+    <xacro:arg name="serial_device" default="/dev/ttyUSB0" />
+
+    <xacro:property name="prefix"   value="$(arg prefix)" />
+    <xacro:property name="hwi_mode" value="$(arg hwi_mode)" />
+
+    <!-- ==================== include 各模块 ==================== -->
+    <xacro:include
+        filename="$(find dd_chassis_01_description)/urdf/test2_t03_DD_chassis_u_m.urdf.xacro" />
+    <xacro:include
+        filename="$(find dd_chassis_01_description)/urdf/dd_chassis_01_sensors.xacro" />
+    <xacro:include
+        filename="$(find dd_chassis_01_description)/urdf/dd_chassis_01_gazebo.xacro" />
+    <xacro:include
+        filename="$(find dd_chassis_01_description)/urdf/dd_chassis_01_gazebo_ign_ros2_control.xacro" />
+    <xacro:include
+        filename="$(find dd_chassis_01_description)/urdf/dd_chassis_01_gazebo_mcu_proxy.xacro" />
+    <xacro:include
+        filename="$(find dd_chassis_01_description)/urdf/dd_chassis_01.ros2_control.xacro" />
+
+    <!-- ==================== 装配 ==================== -->
+
+    <!-- 不要建 <link name="world"/> + fixed joint。
+         原因：URDF->SDF 时，fixed joint 的 parent 叫 "world" 会被
+         sdformat 当成世界的全局坐标系，导致整台车被焊死：
+         轮子在转但车不动、也不落地。
+         让 base_footprint 直接当根，Gazebo 里就是一个自由浮空的动态体，
+         重力会把它放到地面上。 -->
+
+    <!-- 几何：两边共用，无条件。parent 留空 = base_footprint 为根。 -->
+    <xacro:test2_t03_dd_chassis_u_m parent="" prefix="${prefix}">
+        <origin xyz="0 0 0" rpy="0 0 0" />
+    </xacro:test2_t03_dd_chassis_u_m>
+
+    <!-- 传感器挂载点：两边共用 -->
+    <xacro:dd_chassis_01_sensors prefix="${prefix}" />
+
+    <!-- ==================== 分支点 ====================
+
+         两个开关管两件不同的事，故意分开：
+           use_gazebo  是否生成 <gazebo> 段
+           hwi_mode     ros2_control 用哪个硬件插件
+
+         为什么不能合并成一个：
+           gazebo.launch.py 的 sim 和 real 两种模式都需要 <gazebo> 段
+           （仿真要物理和传感器；本机开发硬件插件时同样要），
+           但 ros2_control 的插件一个用 IgnitionSystem，一个用真机插件。
+           合并会导致「real 模式丢掉 Gazebo 段」。 -->
+    <xacro:if value="$(arg use_gazebo)">
+        <xacro:dd_chassis_01_gazebo prefix="${prefix}"
+            controllers_yaml="$(arg controllers_yaml)" />
+    </xacro:if>
+
+    <!-- Gazebo 里由谁驱动轮子：sim 用 ign_ros2_control，real 用
+         JointController 顶替 MCU（速度指令来自 gz_serial 转发的串口命令）。 -->
+    <xacro:if value="$(arg use_gazebo)">
+        <xacro:if value="${hwi_mode=='sim'}">
+            <xacro:dd_chassis_01_gazebo_ign_ros2_control
+                controllers_yaml="$(arg controllers_yaml)" />
+        </xacro:if>
+        <xacro:if value="${hwi_mode=='real'}">
+            <xacro:dd_chassis_01_gazebo_mcu_proxy prefix="${prefix}" />
+        </xacro:if>
+    </xacro:if>
+
+    <xacro:dd_chassis_01_ros2_control name="dd_chassis_01_ros2_controller"
+        prefix="${prefix}" hwi_mode="${hwi_mode}"
+        serial_device="$(arg serial_device)" />
+
+</robot>

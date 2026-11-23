@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!-- ============================================================================
+     传感器挂载点（纯 link/joint，不含任何 Gazebo 标签）
+
+     这些 link 真机和仿真都需要存在：
+       imu_link        真机驱动发布的 /imu 用这个 frame_id，EKF 依赖它
+       lidar_scan_link 雷达测距基准面，slam / scan_filter 依赖它
+
+     为什么 lidar_scan_link 不放在几何文件里：
+       它是纯功能帧，STL 里没有对应实体，改动它不影响 SW 导出的几何。
+       放在这里可以和 imu_link 一起维护。
+
+     注意：lidar_scan_link 的父链仍指向几何 macro 产出的 ydlidar_link，
+     所以本 macro 必须在几何 macro 之后调用，且 prefix 必须一致。
+     ============================================================================ -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="dd_chassis_01_sensors" params="prefix">
+
+    <!-- IMU：装在车体中心，直接用 base_link 位姿。
+         真机驱动发布 /imu 时 frame_id 写 imu_link，必须存在否则 EKF 报 TF 错。 -->
+    <link name="${prefix}imu_link" />
+    <joint name="${prefix}imu_joint" type="fixed">
+      <parent link="${prefix}base_link" />
+      <child link="${prefix}imu_link" />
+      <origin xyz="0 0 0" rpy="0 0 0" />
+    </joint>
+
+    <!-- 扫描面 link：真实 YDLIDAR 的测距基准面在雷达基座上方 18mm，
+       而不是 ydlidar_link 原点（STL 双锥体的正中心）。
+       单独建一个无质量 link，让 sensor 挂在这里，好处是：
+       - TF 树里 lidar_scan_link 就代表真实扫描面，slam 建图精度正确
+       - 不动 ydlidar_link 的位置，RViz 里的模型不会悬空
+       fixed 关节会在 URDF->SDF 时被融合，不引入额外自由度。 -->
+    <link name="${prefix}lidar_scan_link" />
+
+    <joint name="${prefix}lidar_scan_joint" type="fixed">
+      <!-- ydlidar joint 有 rpy="1.5708 0 0"（绕X+90°），所以 ydlidar_link 的
+         +Y 才对应 base_link 的 +Z（向上）。要抬高扫描面 18mm 必须写 y。 -->
+      <origin xyz="0 0.018 0" rpy="-1.5708 0 0" />
+      <parent link="${prefix}ydlidar_link" />
+      <child link="${prefix}lidar_scan_link" />
+    </joint>
+
+  </xacro:macro>
+</robot>

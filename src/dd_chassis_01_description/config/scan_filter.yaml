@@ -1,0 +1,59 @@
+# ROS 2 版 laser_filters 的参数文件格式（不能用 ROS 1 的顶层列表写法）：
+#   顶层必须是节点名，下面 ros__parameters，再下面 filter1/filter2...
+# 节点名要和 launch 里 Node(name=...) 一致，否则参数加载不上。
+scan_filter:
+  ros__parameters:
+    # ---- 1) 车体本体 ----
+    # base_link: x ∈ [-0.2, 0.2], y ∈ [-0.17, 0.17]
+    # 雷达相对 base_footprint 在 x=0.158，换算到雷达坐标系：
+    #   x ∈ [-0.358, 0.042], y ∈ [-0.17, 0.17]
+    # 各边留 1~2cm 余量覆盖 mesh 圆角和数值噪声。
+    filter1:
+      name: body_box
+      type: laser_filters/LaserScanBoxFilter
+      params:
+        box_frame: lidar_scan_link
+        min_x: -0.37
+        max_x: 0.06
+        min_y: -0.18
+        max_y: 0.18
+        min_z: -0.5
+        max_z: 0.5
+        invert: false        # false = 移除盒内的点（车体）
+
+    # ---- 2) 驱动轮 ----
+    # 轮子中心 (0, ±0.17, 0.0325)，半径 0.0325 → 顶部 z=0.065
+    # 雷达扫描面 z=0.0549，比轮子顶部低 1cm，所以轮子上部会被扫到。
+    #
+    # 实测 /scan_raw（r<0.45）得到的车体点范围：
+    #   x ∈ [-0.325, -0.122]   y ∈ [-0.189, +0.208]
+    # 轮子实际比几何估算更外扩（mesh 圆弧 + 多径反射），
+    # y 最远到 0.208，所以这里给到 ±0.22，x 给到 [-0.22, -0.10]。
+    # 注意不能只按理论值 0.1835 设，否则会像之前那样漏掉一圈。
+    filter2:
+      name: wheel_zone
+      type: laser_filters/LaserScanBoxFilter
+      params:
+        box_frame: lidar_scan_link
+        min_x: -0.22
+        max_x: -0.10
+        min_y: -0.22
+        max_y: 0.22
+        min_z: -0.5
+        max_z: 0.5
+        invert: false
+
+    # 万向球轮不用管：
+    # ball_wheel_f (0.184, 0, 0.01) / ball_wheel_b (-0.18, 0, 0.01)，半径 0.01
+    # 顶部 z = 0.020，远低于雷达扫描面 0.0549，水平激光扫不到。
+
+    # ---- 3) 距离兜底 ----
+    filter3:
+      name: range
+      type: laser_filters/LaserScanRangeFilter
+      params:
+        use_message_range_limits: false
+        lower_threshold: 0.12
+        upper_threshold: 12.0
+        lower_replacement_value: .inf
+        upper_replacement_value: .inf

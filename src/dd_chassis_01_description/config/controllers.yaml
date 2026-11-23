@@ -1,0 +1,66 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100          # 与 world 的 max_step_size(0.001) 对齐
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    diff_drive_controller:
+      type: diff_drive_controller/DiffDriveController
+
+diff_drive_controller:
+  ros__parameters:
+    left_wheel_names:  ["wheel_l"]
+    right_wheel_names: ["wheel_r"]
+    wheel_separation: 0.34
+    wheel_radius: 0.0325
+
+    # ===== frame 名：这里是关键，直接产出标准名，不需要任何后缀改写 =====
+    odom_frame_id: odom
+    base_frame_id: base_footprint
+
+    # ===== TF 所有权：odom->base_footprint 由 EKF 发布 =====
+    enable_odom_tf: false
+
+    publish_rate: 50.0
+    position_feedback: true    # 用 position 差分算速度（真机编码器就是这种）
+    open_loop: false
+    cmd_vel_timeout: 0.5
+
+    # ===== 速度指令话题 =====
+    # use_stamped_vel: false -> 订阅 geometry_msgs/Twist
+    #   实际话题：/diff_drive_controller/cmd_vel_unstamped
+    # use_stamped_vel: true  -> 订阅 geometry_msgs/TwistStamped
+    #   实际话题：/diff_drive_controller/cmd_vel
+    #
+    # ⚠️ 无论哪种都不是裸的 /cmd_vel。diff_drive_controller 的话题名
+    #    硬编码带控制器命名空间（~/），而 Humble 的 controller_manager
+    #    不支持在 yaml 里 remap（strings libcontroller_manager.so | grep remap 无结果）。
+    #    所以必须在 launch 里加一条 relay：
+    #        topic_tools relay /cmd_vel \
+    #            /diff_drive_controller/cmd_vel_unstamped
+    #    否则 teleop / nav2 发的 /cmd_vel 无人订阅，遥控完全没反应，
+    #    且不会有任何报错（/cmd_vel 有发布者，只是没订阅者）。
+    # odom 输出：/diff_drive_controller/odom（ekf.yaml 的 odom0 指向它）
+    # =====
+    use_stamped_vel: false
+
+    # ===== 限幅：min/max 必须成对且对称 =====
+    # 这里就是问题 1 的坑。只写 max 时 min 仍是 -inf，
+    # 表现为"一个方向受限、另一个方向完全自由"，原地转向一侧快一侧卡。
+    linear.x.has_velocity_limits: true
+    linear.x.max_velocity: 0.5
+    linear.x.min_velocity: -0.5
+
+    linear.x.has_acceleration_limits: true
+    linear.x.max_acceleration: 0.5
+    linear.x.min_acceleration: -0.5
+
+    angular.z.has_velocity_limits: true
+    angular.z.max_velocity: 1.5
+    angular.z.min_velocity: -1.5
+
+    angular.z.has_acceleration_limits: true
+    angular.z.max_acceleration: 1.5
+    angular.z.min_acceleration: -1.5
+    

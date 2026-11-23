@@ -1,0 +1,401 @@
+amcl:
+  ros__parameters:
+    use_sim_time: True
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    base_frame_id: "base_footprint"
+    beam_skip_distance: 0.5
+    beam_skip_error_threshold: 0.9
+    beam_skip_threshold: 0.3
+    do_beamskip: false
+    global_frame_id: "map"
+    lambda_short: 0.1
+    laser_likelihood_max_dist: 2.0
+    laser_max_range: 100.0
+    laser_min_range: -1.0
+    laser_model_type: "likelihood_field"
+    max_beams: 60
+    max_particles: 2000
+    min_particles: 500
+    odom_frame_id: "odom"
+    pf_err: 0.05
+    pf_z: 0.99
+    recovery_alpha_fast: 0.0
+    recovery_alpha_slow: 0.0
+    resample_interval: 1
+    robot_model_type: "nav2_amcl::DifferentialMotionModel"
+    save_pose_rate: 0.5
+    sigma_hit: 0.2
+    tf_broadcast: true
+    transform_tolerance: 1.0
+    update_min_a: 0.2
+    update_min_d: 0.25
+    z_hit: 0.5
+    z_max: 0.05
+    z_rand: 0.5
+    z_short: 0.05
+    scan_topic: scan
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: True
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    wait_for_service_timeout: 1000
+    # 'default_nav_through_poses_bt_xml' and 'default_nav_to_pose_bt_xml' are use defaults:
+    # nav2_bt_navigator/navigate_to_pose_w_replanning_and_recovery.xml
+    # nav2_bt_navigator/navigate_through_poses_w_replanning_and_recovery.xml
+    # They can be set here or via a RewrittenYaml remap from a parent launch file to Nav2.
+    plugin_lib_names:
+      - nav2_compute_path_to_pose_action_bt_node
+      - nav2_compute_path_through_poses_action_bt_node
+      - nav2_smooth_path_action_bt_node
+      - nav2_follow_path_action_bt_node
+      - nav2_spin_action_bt_node
+      - nav2_wait_action_bt_node
+      - nav2_assisted_teleop_action_bt_node
+      - nav2_back_up_action_bt_node
+      - nav2_drive_on_heading_bt_node
+      - nav2_clear_costmap_service_bt_node
+      - nav2_is_stuck_condition_bt_node
+      - nav2_goal_reached_condition_bt_node
+      - nav2_goal_updated_condition_bt_node
+      - nav2_globally_updated_goal_condition_bt_node
+      - nav2_is_path_valid_condition_bt_node
+      - nav2_initial_pose_received_condition_bt_node
+      - nav2_reinitialize_global_localization_service_bt_node
+      - nav2_rate_controller_bt_node
+      - nav2_distance_controller_bt_node
+      - nav2_speed_controller_bt_node
+      - nav2_truncate_path_action_bt_node
+      - nav2_truncate_path_local_action_bt_node
+      - nav2_goal_updater_node_bt_node
+      - nav2_recovery_node_bt_node
+      - nav2_pipeline_sequence_bt_node
+      - nav2_round_robin_node_bt_node
+      - nav2_transform_available_condition_bt_node
+      - nav2_time_expired_condition_bt_node
+      - nav2_path_expiring_timer_condition
+      - nav2_distance_traveled_condition_bt_node
+      - nav2_single_trigger_bt_node
+      - nav2_goal_updated_controller_bt_node
+      - nav2_is_battery_low_condition_bt_node
+      - nav2_navigate_through_poses_action_bt_node
+      - nav2_navigate_to_pose_action_bt_node
+      - nav2_remove_passed_goals_action_bt_node
+      - nav2_planner_selector_bt_node
+      - nav2_controller_selector_bt_node
+      - nav2_goal_checker_selector_bt_node
+      - nav2_controller_cancel_bt_node
+      - nav2_path_longer_on_approach_bt_node
+      - nav2_wait_cancel_bt_node
+      - nav2_spin_cancel_bt_node
+      - nav2_back_up_cancel_bt_node
+      - nav2_assisted_teleop_cancel_bt_node
+      - nav2_drive_on_heading_cancel_bt_node
+      - nav2_is_battery_charging_condition_bt_node
+
+bt_navigator_navigate_through_poses_rclcpp_node:
+  ros__parameters:
+    use_sim_time: True
+
+bt_navigator_navigate_to_pose_rclcpp_node:
+  ros__parameters:
+    use_sim_time: True
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    failure_tolerance: 0.3
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"] # "precise_goal_checker"
+    controller_plugins: ["FollowPath"]
+
+    # Progress checker parameters
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      # 10s 内必须走满 0.5m，对 0.5m/s 的底盘在窄处或转弯时太苛刻，
+      # 容易误判"卡住"而 abort。放宽到 0.3m / 15s。
+      required_movement_radius: 0.3
+      movement_time_allowance: 15.0
+    # Goal checker parameters
+    #precise_goal_checker:
+    #  plugin: "nav2_controller::SimpleGoalChecker"
+    #  xy_goal_tolerance: 0.25
+    #  yaw_goal_tolerance: 0.25
+    #  stateful: True
+    general_goal_checker:
+      stateful: True
+      plugin: "nav2_controller::SimpleGoalChecker"
+      # 原 0.25/0.25 是 TurtleBot 默认，5cm 网格下太松：
+      # 差 25cm 就报"到了"，实际离目标还很远。
+      xy_goal_tolerance: 0.10
+      yaw_goal_tolerance: 0.15
+    # ==================================================================
+    # 【控制器选型】用 Regulated Pure Pursuit，不用 DWB
+    #
+    # 为什么放弃 DWB：
+    #   DWB 是"采样速度对 + 一组 critic 加权求和"的局部轨迹规划器，
+    #   路径跟踪只是其中的软约束。在 180° 回折弯上：
+    #     - 路径折线拐点处，PathAlign 的参考点方向会跳变
+    #     - forward_point_distance(0.1m) 在回折处可能跨到另一段路径
+    #     - PathDist/PathAlign 在直道上 raw score 恒为 0，
+    #       对"小幅提前转向"完全不敏感，只剩 Goal* 在拉
+    #   → 表现就是"提前转弯 vs 直行"反复横跳，调权重只是换一种抖法。
+    #
+    # RPP 是几何跟踪器：找 lookahead 点 → 算圆弧曲率 → 直接输出角速度。
+    # 没有权重可调，天然平滑；配合 use_rotate_to_heading，
+    # 航向差超过阈值时先原地转到路径方向再走，不会提前拐。
+    #
+    # 若需回退 DWB：git checkout config/nav2_params.yaml
+    # ==================================================================
+    FollowPath:
+      plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+
+      # ------------------------------------------------------------------
+      # 以下是 nav2 官方 RPP 的默认参数，只按本底盘能力改了两类：
+      #   1) 速度/加速度上限（官方 TurtleBot 值 0.5 / 3.2，本底盘 0.5 / 1.5）
+      #   2) desired_linear_vel 取 0.4，留出 S 弯余量
+      # 其余一律保持官方默认，不做"自创"调整。
+      #
+      # 已删除两个 Humble 版本不存在的参数：
+      #   max_linear_accel / max_linear_decel（官方 .so 里没有声明）
+      # ------------------------------------------------------------------
+
+      # 速度（官方 desired_linear_vel 默认 0.5；本车 0.5，S 弯留余量取 0.4）
+      desired_linear_vel: 0.3
+
+      # 前瞻（官方默认：0.6 / 0.3 / 0.9 / 1.5）
+      lookahead_dist: 0.6
+      min_lookahead_dist: 0.3
+      max_lookahead_dist: 0.9
+      lookahead_time: 1.5
+      # 官方默认 false：固定 0.6m 前瞻。
+      # 开启后高速时前瞻涨到 0.9m，会"看见更远的弯"，与"别提前转"的目标相反。
+      use_velocity_scaled_lookahead_dist: false
+
+      # 原地转向（官方默认：true / 45° / 1.8 rad/s）
+      # 角速度按底盘上限 1.5 取 1.5
+      use_rotate_to_heading: true
+      rotate_to_heading_min_angle: 0.785
+      rotate_to_heading_angular_vel: 1.5
+
+      # 弯道降速（官方默认，全部保持）
+      use_regulated_linear_velocity_scaling: true
+      regulated_linear_scaling_min_radius: 0.9
+      regulated_linear_scaling_min_speed: 0.25
+      use_cost_regulated_linear_velocity_scaling: false
+
+      # 碰撞检测（官方默认）
+      use_collision_detection: true
+      max_allowed_time_to_collision_up_to_carrot: 1.0
+
+      # 接近目标（官方默认 0.05 / 0.6）
+      min_approach_linear_velocity: 0.05
+      approach_velocity_scaling_dist: 0.6
+
+      # 角加速度：官方 3.2，本底盘 1.5
+      max_angular_accel: 1.5
+      transform_tolerance: 0.2
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      # 局部代价图跟着激光转，频率给足
+      update_frequency: 10.0
+      publish_frequency: 5.0
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: True
+      rolling_window: true
+      width: 3
+      height: 3
+      resolution: 0.05
+      footprint: "[[0.21, 0.18], [0.21, -0.18], [-0.21, -0.18], [-0.21, 0.18]]"
+      plugins: ["voxel_layer", "inflation_layer"]
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        # 【调参历程】
+        #   0.55 (TurtleBot 默认) -> 太保守，窄处绕远
+        #   0.28                  -> 又太贴墙：车身半宽 0.21，只多 7cm，
+        #                            NavFn 把路径规划进膨胀区，车沿路径走就撞墙
+        #   0.35 = 半宽 0.21 + 0.14 余量。路径能离墙足够远，
+        #          0.70m 宽通道仍可通过。
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.35
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: True
+        publish_voxel_map: True
+        origin_z: 0.0
+        z_resolution: 0.05
+        z_voxels: 16
+        max_obstacle_height: 2.0
+        mark_threshold: 0
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      always_send_full_costmap: True
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      # 原来 1Hz，障碍层更新太慢，转弯时地图信息滞后
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: True
+      footprint: "[[0.21, 0.18], [0.21, -0.18], [-0.21, -0.18], [-0.21, 0.18]]"
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 3.0
+          raytrace_min_range: 0.0
+          obstacle_max_range: 2.5
+          obstacle_min_range: 0.0
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        # 与 local_costmap 保持一致（0.35）。
+        # 两者不一致时，全局按 global 的膨胀规划、局部按 local 的膨胀避障，
+        # 会出现“路径看着能走、DWB 却认为要撞”的矛盾。
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.35
+      always_send_full_costmap: True
+
+map_server:
+  ros__parameters:
+    use_sim_time: True
+    # Overridden in launch by the "map" launch configuration or provided default value.
+    # To use in yaml, remove the default "map" value in the tb3_simulation_launch.py file & provide full path to map below.
+    yaml_filename: ""
+
+map_saver:
+  ros__parameters:
+    use_sim_time: True
+    save_map_timeout: 5.0
+    free_thresh_default: 0.25
+    occupied_thresh_default: 0.65
+    map_subscribe_transient_local: True
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      # 0.5 太松：目标点在障碍里也能"规划成功"到 0.5m 外
+      tolerance: 0.2
+      use_astar: false
+      allow_unknown: true
+
+smoother_server:
+  ros__parameters:
+    use_sim_time: True
+    smoother_plugins: ["simple_smoother"]
+    simple_smoother:
+      plugin: "nav2_smoother::SimpleSmoother"
+      tolerance: 1.0e-10
+      max_its: 1000
+      do_refinement: True
+
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    assisted_teleop:
+      plugin: "nav2_behaviors/AssistedTeleop"
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 0.1
+    use_sim_time: true
+    simulate_ahead_time: 2.0
+    # 与底盘对齐（controllers.yaml 的 1.5 rad/s、1.5 rad/s^2）
+    max_rotational_vel: 1.5
+    min_rotational_vel: 0.3
+    rotational_acc_lim: 1.5
+
+robot_state_publisher:
+  ros__parameters:
+    use_sim_time: True
+
+waypoint_follower:
+  ros__parameters:
+    use_sim_time: True
+    loop_rate: 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: True
+      waypoint_pause_duration: 200
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: True
+    smoothing_frequency: 20.0
+    scale_velocities: False
+    feedback: "OPEN_LOOP"
+
+    # 【线速度x, 线速度y, 角速度z】
+    # 原值是 nav2 默认的 TurtleBot 值(0.26 / 1.0)，比这个底盘的能力
+    # (diff_drive_controller 里 0.5 / 1.5) 小一半，会把导航和遥控都拖慢。
+    # 这里与 controllers.yaml 的限幅对齐。
+    max_velocity: [0.3, 0.0, 1.0]
+    min_velocity: [-0.3, 0.0, -1.0]
+
+    # 加速度同样与底盘对齐（0.5 m/s^2、1.5 rad/s^2）。
+    # 平滑器先限一道，diff_drive_controller 再限一道，两道保持一致
+    # 才不会出现“平滑器允许但控制器拒绝”的隐形降速。
+    max_accel: [0.4, 0.0, 1.0]
+    max_decel: [-0.4, 0.0, -1.0]
+
+    odom_topic: "odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0

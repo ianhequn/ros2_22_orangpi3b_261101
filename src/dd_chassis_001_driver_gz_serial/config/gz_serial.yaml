@@ -1,0 +1,32 @@
+# 假 MCU（gz_serial）参数
+# 与 dd_chassis_01_description/urdf/dd_chassis_01.ros2_control.xacro 里的
+# 同名参数必须成对一致：驱动用 speed_scale/invert 把固件值换成关节值，
+# 这里用完全相同的换算把关节值还原成固件值。
+dd_chassis_001_gz_serial:
+  ros__parameters:
+    serial_device: /dev/ttyV1     # socat 的另一端；驱动用 /dev/ttyV0
+    baud_rate: 1000000            # PTY 上波特率无意义，保留以便与真机一致
+    serial_reopen_period_s: 1.0
+
+    frame_end: 2139095040         # 0x7F800000，与驱动 frame_end 一致
+    report_rate: 120.0
+
+    # 固件电机号 -> gz 关节名（左=1、右=0，与驱动的 left/right_motor_index 对应）
+    motor0_joint: wheel_r
+    motor1_joint: wheel_l
+    # 必须与驱动的 left/right_speed_scale 完全一致（实测标定值 0.030063）
+    motor_speed_scale: [0.030063, 0.030063]
+    motor_invert: [false, false]
+
+    # 只用于填上报帧里的 PID 诊断字段
+    motor_kp: [1.0, 1.0]
+    motor_ki: [0.1, 0.1]
+    motor_kd: [0.0, 0.0]
+
+    # 话题（bridge_real.yaml 里对这些名字做 gz <-> ros 映射）
+    joint_states_topic: mcu_proxy/joint_states
+    imu_topic: mcu_proxy/imu
+    debug_log: false
+    motor_cmd_topics:
+      - mcu_proxy/motor0_cmd_vel
+      - mcu_proxy/motor1_cmd_vel

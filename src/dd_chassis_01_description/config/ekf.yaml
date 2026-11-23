@@ -1,0 +1,69 @@
+ekf_filter_node:
+  ros__parameters:
+    # 真机用 false；仿真 launch 会覆盖成 true
+    use_sim_time: false
+    frequency: 30.0
+    sensor_timeout: 0.1
+
+    # ============================================================
+    # 双输入源，分工明确，避免同一物理量被两个信源同时提供（会发散）
+    #   轮速里程计 -> 只提供 vx（线速度）
+    #   IMU        -> 只提供 yaw（姿态）和 vyaw（角速度）
+    # ============================================================
+
+    # ============================================================
+    # 输入源 1：diff_drive_controller 的轮速里程计
+    #
+    # ⚠️ 话题名是 /diff_drive_controller/odom，不是 /wheel_odom。
+    #    diff_drive_controller 的话题名硬编码带控制器命名空间（~/odom），
+    #    Humble 的 controller_manager 又不支持在 yaml 里 remap，
+    #    所以这里直接写全名最稳妥。
+    #
+    # 之前用 /wheel_odom 是 DiffDrive 插件时代的名字。改成 ros2_control 后
+    # 插件已删，那个话题无人发布，EKF 拿不到任何输入，表现就是
+    # 角度正常但 xy 永远不动、协方差一路涨。
+    # ============================================================
+
+    # odom0_config 的 15 个分量顺序：
+    #   [x, y, z,
+    #    roll, pitch, yaw,
+    #    vx, vy, vz,
+    #    vroll, vpitch, vyaw,
+    #    ax, ay, az]
+    odom0: /diff_drive_controller/odom
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  false, false,   # 只取 vx
+                   false, false, false,   # 不取 vyaw，交给 IMU
+                   false, false, false]
+    odom0_differential: false
+    odom0_relative: false
+
+    imu0: /imu
+    # 只取绝对 yaw 姿态，不取 vyaw 角速度。
+    #
+    # vyaw 是驱动对相邻帧 yaw 差分算出来的（帧里只有欧拉角，没有陀螺仪）。
+    # 串口接触不良时帧间隔 dt 会变得极小（缓冲区积压后一次性吐出），
+    # Δyaw/dt 会算出几百甚至上千 rad/s，EKF 拿它积分后
+    # odom->base_footprint 的 yaw 会剧烈乱转（实测 1 秒跳 215°）。
+    #
+    # yaw 是绝对姿态，不会积分发散；vyaw 没了只是响应稍慢，
+    # 差速车有轮速 vx 也够用。
+    imu0_config: [false, false, false,
+                  false, false, true,     # 取 yaw 姿态
+                  false, false, false,
+                  false, false, false,    # 不再取 vyaw 角速度
+                  false, false, false]
+    imu0_differential: false
+    imu0_remove_gravitational_acceleration: true
+
+    # 差速车：只有 x 平移 + yaw 旋转，强制 z/roll/pitch 为 0
+    two_d_mode: true
+
+    # 输出 odom -> base_footprint。注意必须是 odom，
+    # 设成 map 会和 slam_toolbox 抢 map->odom 的发布权。
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom

@@ -1,0 +1,55 @@
+# Gazebo Fortress <-> ROS 2 话题桥（hwi_mode=real：本机硬件插件 + 假 MCU）
+#
+# 与 bridge.yaml 的区别只有三处，都是为了"仿真尽量等于真机"：
+#   1. Gazebo 的 IMU 不直接进 /imu，改名 mcu_proxy/imu 先喂给假 MCU，
+#      再由驱动从串口帧里还原出来发 /imu。否则 Gazebo 和驱动会同时发 /imu。
+#   2. 多一条关节反馈（gz Model -> sensor_msgs/JointState），
+#      假 MCU 用它填帧里的 speed0/speed1。
+#   3. 多两条电机速度指令（ROS Float64 -> gz Double），
+#      假 MCU 把串口命令换算后发到这里，顶替固件的 PWM 输出。
+
+- ros_topic_name: "clock"
+  gz_topic_name: "clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# 雷达：桥进来改名 scan_raw，经 laser_filters 过滤后再叫 scan（同 bridge.yaml）
+- ros_topic_name: "scan_raw"
+  gz_topic_name: "scan"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS
+
+# IMU 原始数据 -> 假 MCU（不直接进 /imu）
+- ros_topic_name: "mcu_proxy/imu"
+  gz_topic_name: "imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+# 关节反馈 -> 假 MCU。gz 侧话题必须写全 scoped 名：
+# JointStatePublisher 不写 <topic> 时实际发在
+# /world/<world>/model/<model>/joint_state 上（实测），
+# 写相对的 "joint_state" 匹配不到任何发布者，bridge 会静默收不到数据。
+# 这里的 world 名(default) 与 model 名(dd_chassis) 由 gazebo.launch.py 固定。
+- ros_topic_name: "mcu_proxy/joint_states"
+  gz_topic_name: "/world/default/model/dd_chassis/joint_state"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS
+
+# 电机速度指令：假 MCU -> gz JointController
+# gz 侧话题名是 JointController 的 scoped 默认名 /model/<model>/joint/<joint>/cmd_vel
+# 电机号映射（0->右轮, 1->左轮）与驱动的 left/right_motor_index 一致。
+- ros_topic_name: "mcu_proxy/motor0_cmd_vel"
+  gz_topic_name: "/model/dd_chassis/joint/wheel_r/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ
+
+- ros_topic_name: "mcu_proxy/motor1_cmd_vel"
+  gz_topic_name: "/model/dd_chassis/joint/wheel_l/cmd_vel"
+  ros_type_name: "std_msgs/msg/Float64"
+  gz_type_name: "gz.msgs.Double"
+  direction: ROS_TO_GZ

@@ -1,0 +1,170 @@
+<?xml version="1.0"?>
+<!-- ============================================================================
+     Gazebo (Ignition Fortress) 专属内容
+
+     包含三块：
+       1. 轮子接触参数（mu / kp / kd）
+       2. 传感器（gpu_lidar / imu）
+       3. ign_ros2_control 系统插件
+
+     全部放在 <xacro:if value="${hwi_mode=='sim'}"> 之外由调用方决定是否调用，
+     本文件自身不判断，保持"纯内容"。
+
+     注意：所有 reference= 的 link 名都带 ${prefix}！
+     几何 macro 产出的 link 是 ${prefix}base_link 等，这里不带前缀会挂错对象。
+     ============================================================================ -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="dd_chassis_01_gazebo" params="prefix controllers_yaml">
+
+    <!-- ================= ros2_control 系统插件（已移出） =================
+         ign_ros2_control 只在 hwi_mode=sim 时加载，现在放在
+         dd_chassis_01_gazebo_ign_ros2_control.xacro，由顶层 xacro 按模式调用。
+         原因：real 模式下 controller_manager 由 launch 的 ros2_control_node 提供，
+         若 Gazebo 里再挂一个 ign_ros2_control，两者会抢同一批 controller。
+         controllers_yaml 参数因此在本文件里不再使用，保留形参只为调用方兼容。 -->
+
+    <!-- ================= 万向球轮 =================
+         摩擦取极小值，让它近似无阻力滑动，模拟牛眼轮。 -->
+    <gazebo reference="${prefix}ball_wheel_f_link">
+      <mu1>0.001</mu1>
+      <mu2>0.001</mu2>
+      <kp>10000</kp>
+      <kd>150</kd>
+    </gazebo>
+    <gazebo reference="${prefix}ball_wheel_b_link">
+      <mu1>0.001</mu1>
+      <mu2>0.001</mu2>
+      <kp>10000</kp>
+      <kd>150</kd>
+    </gazebo>
+
+    <!-- ================= 驱动轮 =================
+         必须显式写 kp/kd。不写时 SDF 里是空的 <ode/>，即默认 kp=1e12，
+         比球轮的 1e4 硬 1 亿倍。两类轮子刚度差这么多会让求解器在接触
+         方向上来回跳变，实测表现为"左转时两轮同向、车身不转"。
+         这里与球轮取同一个量级。 -->
+    <gazebo reference="${prefix}wheel_l_link">
+      <mu1>1.0</mu1>
+      <mu2>0.5</mu2>
+      <kp>10000</kp>
+      <kd>150</kd>
+    </gazebo>
+    <gazebo reference="${prefix}wheel_r_link">
+      <mu1>1.0</mu1>
+      <mu2>0.5</mu2>
+      <kp>10000</kp>
+      <kd>150</kd>
+    </gazebo>
+
+    <!-- ================= 2D 激光雷达 =================
+         要点（Fortress 6.18 + ogre2 实测）：
+         1. type 用 gpu_lidar / 块名用 <lidar>：sdformat 明确写 gpu_ray/<ray>
+            与 gpu_lidar/<lidar> 等价，但前者将被废弃。
+         2. 不需要 <pose>，默认与 lidar_scan_link 重合。
+         3. 不需要 <vertical>：省略时 gz 使用默认单层（samples=1, min=max=0），
+            就是水平扫描。
+         4. visibility_mask 把地面 visual 排除出射线求交。
+            原因：雷达离地仅 3.69cm，gpu_lidar 靠渲染深度图求交，掠射角下
+            约 0.4° 的等效误差会被放大成 d = 0.0369/sin(0.4°) ≈ 5.3m 的
+            虚假命中，表现为一圈约 10m×10m、跟随车体移动的"方形假墙"。
+            world 里地面 visual 打了 visibility_flags=2（bit1），这里把 bit1
+            清掉（0xFFFFFFFF & ~2 = 4294967293）；其它物体默认 flags 全 1，
+            照常可见。物理 collision 不受影响，小车不会掉下去。
+         5. ydlidar_link 故意不写 <collision>：避免雷达与车体/地面产生物理接触。
+         6. sensor 挂在 lidar_scan_link 上，代表真实 YDLIDAR 的测距基准面。
+            离地高度 = 0.0665(base_link) - 0.0296(ydlidar joint) + 0.018 = 0.0549m。 -->
+    <gazebo reference="${prefix}lidar_scan_link">
+      <sensor name="lidar" type="gpu_lidar">
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+        <update_rate>10</update_rate>
+        <topic>scan</topic>
+        <gz_frame_id>${prefix}lidar_scan_link</gz_frame_id>
+        <lidar>
+          <scan>
+            <horizontal>
+              <samples>360</samples>
+              <resolution>1</resolution>
+              <min_angle>-3.14159</min_angle>
+              <max_angle>3.14159</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.10</min>
+            <max>20.0</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.01</stddev>
+          </noise>
+          <visibility_mask>4294967293</visibility_mask>
+        </lidar>
+      </sensor>
+    </gazebo>
+
+    <!-- ================= IMU =================
+         挂在 base_link 上（车体中心）。
+         车体点不在 Gazebo 侧屏蔽：真机没有这套机制，必须在 ROS 侧用
+         laser_filters 过滤。为了仿真和真机走同一条数据链路，这里保持
+         车体 visual 默认可见。 -->
+    <gazebo reference="${prefix}base_link">
+      <sensor name="imu_sensor" type="imu">
+        <always_on>true</always_on>
+        <!-- 250Hz 而不是 100Hz：真机 MCU 以 ~120Hz 上报欧拉角，
+             若仿真传感器的更新率低于上报率，相邻两帧会取到同一个 yaw，
+             驱动用相邻帧差分校准 yaw 角速度时就会周期性算出 0
+             （实测表现为 /imu 的 angular_velocity.z 在 0.6 与 0 之间跳，
+             和指令值对不上）。传感器比上报快一倍以上，每帧都有新数据。 -->
+        <update_rate>250</update_rate>
+        <topic>imu</topic>
+        <gz_frame_id>${prefix}imu_link</gz_frame_id>
+        <imu>
+          <angular_velocity>
+            <x>
+              <noise type="gaussian">
+                <mean>0</mean>
+                <stddev>0.0002</stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0</mean>
+                <stddev>0.0002</stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0</mean>
+                <stddev>0.0002</stddev>
+              </noise>
+            </z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x>
+              <noise type="gaussian">
+                <mean>0</mean>
+                <stddev>0.0017</stddev>
+              </noise>
+            </x>
+            <y>
+              <noise type="gaussian">
+                <mean>0</mean>
+                <stddev>0.0017</stddev>
+              </noise>
+            </y>
+            <z>
+              <noise type="gaussian">
+                <mean>0</mean>
+                <stddev>0.0017</stddev>
+              </noise>
+            </z>
+          </linear_acceleration>
+        </imu>
+      </sensor>
+    </gazebo>
+
+  </xacro:macro>
+</robot>

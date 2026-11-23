@@ -1,0 +1,43 @@
+# 验证用控制器配置：与真机导航侧保持一致，只少了 EKF
+controller_manager:
+  ros__parameters:
+    update_rate: 60
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    diff_drive_controller:
+      type: diff_drive_controller/DiffDriveController
+
+diff_drive_controller:
+  ros__parameters:
+    left_wheel_names: ["wheel_l"]
+    right_wheel_names: ["wheel_r"]
+    wheel_separation: 0.34
+    wheel_radius: 0.0325
+
+    base_frame_id: base_footprint
+    odom_frame_id: odom
+    # 真机导航时 odom->base_footprint 由 EKF 发布，这里必须关闭，避免抢 TF
+    enable_odom_tf: false
+    publish_rate: 50.0
+
+    position_feedback: true
+    open_loop: false
+    cmd_vel_timeout: 0.5
+    # 注意：命令订阅是 BEST_EFFORT，发布端必须匹配，否则消息被静默丢弃
+    use_stamped_vel: false
+
+    linear.x.has_velocity_limits: true
+    linear.x.max_velocity: 0.5
+    linear.x.min_velocity: -0.5
+    linear.x.has_acceleration_limits: true
+    linear.x.max_acceleration: 0.5
+    linear.x.min_acceleration: -0.5
+
+    angular.z.has_velocity_limits: true
+    angular.z.max_velocity: 1.5
+    angular.z.min_velocity: -1.5
+    angular.z.has_acceleration_limits: true
+    angular.z.max_acceleration: 1.5
+    angular.z.min_acceleration: -1.5
