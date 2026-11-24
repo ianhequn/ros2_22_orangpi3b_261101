@@ -53,32 +53,8 @@ install(PROGRAMS
 )
 
 # ===== 测试 =====
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  find_package(ament_cmake_gmock REQUIRED)
-  set(ament_cmake_copyright_FOUND TRUE)
-  set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-
-  ament_add_gmock(test_config test/test_config.cpp)
-  target_link_libraries(test_config dd_chassis_001_driver)
-
-  ament_add_gmock(test_chassis_protocol test/test_chassis_protocol.cpp)
-  target_link_libraries(test_chassis_protocol dd_chassis_001_driver)
-
-  ament_add_gmock(test_data_exchange test/test_data_exchange.cpp)
-  target_link_libraries(test_data_exchange dd_chassis_001_driver)
-
-  ament_add_gmock(test_load_dd_chassis_001_system
-    test/test_load_dd_chassis_001_system.cpp
-  )
-  target_link_libraries(test_load_dd_chassis_001_system dd_chassis_001_driver)
-  ament_target_dependencies(test_load_dd_chassis_001_system
-    hardware_interface
-    pluginlib
-  )
-endif()
-
+# 本仓库（orangepi）不保留测试：单测与 lint 只在 WSL 侧仓库维护，
+# 免得真机环境还要装 ament-cmake-gmock / ament-lint-common。
 ament_export_include_directories(include)
 ament_export_libraries(dd_chassis_001_driver)
 ament_package()
