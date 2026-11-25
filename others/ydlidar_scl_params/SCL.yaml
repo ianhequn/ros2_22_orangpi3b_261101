@@ -33,7 +33,7 @@ ydlidar_ros2_driver_node:
     #    任何 yaw 都掰不回来。两个都关掉，让 /scan 原始角度就是物理真值，
     #    URDF 里 lidar_scan_joint 的 yaw 也就是 0。
     #    若实测"前后对、左右镜像" -> 雷达是倒装的，此时只开 inverted: true。
-    inverted: false
+    inverted: true
     # 串口异常后自动重连
     auto_reconnect: true
     # 通过串口 DTR 控制电机；false 时 startMotor/stopMotor 走 clearDTR()，
