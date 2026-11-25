@@ -408,7 +408,6 @@ bool DDChassis001System::reopen_serial()
 void DDChassis001System::apply_frame(const ChassisFrame & frame, SteadyClock::time_point now)
 {
   const WheelConfig * wheels[kWheelCount] = {&cfg_.left, &cfg_.right};
-  const size_t speed_fields[kWheelCount] = {kFieldSpeed0, kFieldSpeed1};
 
   StateSnapshot snapshot = snapshot_.get();
   if (!snapshot.valid) {
@@ -430,7 +429,11 @@ void DDChassis001System::apply_frame(const ChassisFrame & frame, SteadyClock::ti
 
   for (size_t i = 0; i < kWheelCount; ++i) {
     const WheelConfig & wheel = *wheels[i];
-    const double raw = frame[speed_fields[i]];
+    // 必须按电机号取字段。命令侧是 left->motor1 / right->motor0，
+    // 若这里写死 speed0=left、speed1=right，反馈的左右会与命令互换：
+    // 直行两轮同值看不出来，但转向时 DDS 侧算出的 wz 符号会反，
+    // 表现为 odom 的 yaw 与 IMU 相反、闭环导航"让左转反而右转"。
+    const double raw = frame[kFieldSpeed0 + static_cast<size_t>(wheel.motor_index)];
     const double direction = wheel.invert ? -1.0 : 1.0;
     snapshot.wheel_velocity[i] = raw * wheel.speed_scale * direction;
     snapshot.wheel_position[i] += snapshot.wheel_velocity[i] * dt;
@@ -466,7 +469,8 @@ void DDChassis001System::apply_frame(const ChassisFrame & frame, SteadyClock::ti
     RCLCPP_INFO_THROTTLE(
       logger(), throttle_clock(), 1000,
       "[dbg] speed raw=[%.3f, %.3f] -> vel=[%.3f, %.3f] pos=[%.3f, %.3f] yaw=%+.1fdeg",
-      frame[kFieldSpeed0], frame[kFieldSpeed1],
+      frame[kFieldSpeed0 + static_cast<size_t>(cfg_.left.motor_index)],
+      frame[kFieldSpeed0 + static_cast<size_t>(cfg_.right.motor_index)],
       snapshot.wheel_velocity[0], snapshot.wheel_velocity[1],
       snapshot.wheel_position[0], snapshot.wheel_position[1],
       snapshot.imu_yaw_rad * 180.0 / kPi);

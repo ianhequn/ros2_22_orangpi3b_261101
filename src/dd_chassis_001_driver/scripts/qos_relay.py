@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
-"""
-QoS 中继：把 RELIABLE 发布的 Twist 转成 BEST_EFFORT 转发。
+r"""
+QoS 中继：把 /cmd_vel 的 Twist 转发到 diff_drive_controller 的输入话题.
 
-为什么需要：diff_drive_controller 的 cmd_vel 订阅固定 BEST_EFFORT，
-而 teleop_twist_keyboard 2.4.1（humble 官方包）没有 qos 参数，固定用默认
-RELIABLE 发布 —— DDS 规定 RELIABLE 发布者不能向 BEST_EFFORT 订阅者投递，
-消息被静默丢弃、且两端都不报错。用本节点收下 RELIABLE、改用 BEST_EFFORT 转发。
+背景（2026-11 实机踩坑）：
+  diff_drive_controller 的输入话题硬编码成 ~/cmd_vel_unstamped，而 nav2、teleop
+  都发 /cmd_vel，中间必须有人转发。缺这条中继时表现是"规划成功但车不动"：
+  /cmd_vel 有发布者、cmd_vel_unstamped 零订阅者，两端都不报错。
+
+QoS 说明（避免误判）：
+  DDS 允许 RELIABLE 发布者投递给 BEST_EFFORT 订阅者，不兼容的是反向
+  （BEST_EFFORT 发 -> RELIABLE 收，会打 incompatible QoS 警告并静默丢包）。
+  本节点订阅端用 RELIABLE、发布端用 BEST_EFFORT，两个方向都兼容，并打印转发计数，
+  比 topic hz 更能确认中继真的在工作（topic 信息可能来自缓存）。
 
 示例：
-  ros2 run dd_chassis_001_driver qos_relay.py \\
+  ros2 run dd_chassis_001_driver qos_relay.py \
       --in /cmd_vel --out /diff_drive_controller/cmd_vel_unstamped
 """
 

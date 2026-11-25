@@ -72,28 +72,14 @@ def generate_launch_description():
 
     return LaunchDescription([
         DeclareLaunchArgument(
-            'relay', default_value='true',
-            description='起 /cmd_vel -> /diff_drive_controller/cmd_vel_unstamped 中继'),
-        DeclareLaunchArgument(
             'monitor', default_value='false',
             description='是否启动 chassis_monitor 打表（订阅 /joint_states、/imu、odom）'),
         ros2_control_node,
         load_jsb,
         load_ddc,
-        # /cmd_vel -> /diff_drive_controller/cmd_vel_unstamped
-        #
-        # diff_drive_controller 的输入话题硬编码成 ~/cmd_vel_unstamped，
-        # 而 nav2 / teleop 都发 /cmd_vel，中间必须有人转发，否则
-        # "规划成功但车不动"（/cmd_vel 有发布者、零订阅者，且没有报错）。
-        # 谁起 controller_manager 谁负责这条中继，避免两边都以为对方会起。
-        Node(
-            package='topic_tools',
-            executable='relay',
-            name='cmd_vel_relay',
-            arguments=['/cmd_vel', '/diff_drive_controller/cmd_vel_unstamped'],
-            condition=IfCondition(LaunchConfiguration('relay')),
-            output='screen',
-        ),
+        # 注意：/cmd_vel -> /diff_drive_controller/cmd_vel_unstamped 的中继
+        # 不放在这里。实机用 scripts/qos_relay.py 手动起，好处是能打印
+        # "已转发 N 条"，确认中继真的在工作（ros2 topic hz/info 可能读到缓存）。
         Node(
             package='dd_chassis_001_driver',
             executable='chassis_monitor.py',
