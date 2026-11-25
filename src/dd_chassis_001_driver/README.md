@@ -18,6 +18,7 @@ MCU 以 ~120Hz 上报 64 字节帧（IMU 欧拉角 + 两轮速度），同时随
 | `launch/chassis_test.launch.py` | 验证用启动 |
 | `scripts/serial_monitor.py` | 裸串口自检 / 标定辅助（不依赖 ros2_control） |
 | `scripts/chassis_monitor.py` | 话题打表（轮速/yaw/odom 单行刷新） |
+| `scripts/qos_relay.py` | Twist QoS 中继（RELIABLE→BEST_EFFORT），键盘遥控必备 |
 | `test/` | 参数、协议、数据面、插件加载的单元测试 |
 | `note/` | `设计说明.md`（架构）、`TODO.md`（进度与验证）、`教程.md`（官方文档译文） |
 

@@ -49,6 +49,7 @@ install(DIRECTORY config launch note DESTINATION share/${PROJECT_NAME})
 install(PROGRAMS
   scripts/serial_monitor.py
   scripts/chassis_monitor.py
+  scripts/qos_relay.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
