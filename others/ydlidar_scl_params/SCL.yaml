@@ -25,10 +25,15 @@ ydlidar_ros2_driver_node:
     abnormal_check_count: 4
     # 固定角度分辨率：true 时按 m_FixedSize 把一圈点重采样成固定点数（angle_increment 恒定）
     fixed_resolution: true
-    # 角度整体旋转 180°
-    reversion: true
-    # 反向：角度改为 2π-angle（顺时针/逆时针切换）
-    inverted: true
+    # 角度整体旋转 180°（theta -> theta + π）。默认 false
+    reversion: false
+    # 反向：角度改为 2π-angle（镜像，det = -1）。默认 false
+    # ⚠️ 2026-11 实机教训：reversion + inverted 同时开 == 反射，
+    #    表现为"前后颠倒 / 左右镜像"，而 TF(URDF 的 rpy) 只能做旋转，
+    #    任何 yaw 都掰不回来。两个都关掉，让 /scan 原始角度就是物理真值，
+    #    URDF 里 lidar_scan_joint 的 yaw 也就是 0。
+    #    若实测"前后对、左右镜像" -> 雷达是倒装的，此时只开 inverted: true。
+    inverted: false
     # 串口异常后自动重连
     auto_reconnect: true
     # 通过串口 DTR 控制电机；false 时 startMotor/stopMotor 走 clearDTR()，
